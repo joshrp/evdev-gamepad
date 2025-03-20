@@ -1,15 +1,32 @@
-import { accessSync, createReadStream, fstat, ReadStream, watch } from "node:fs";
+import { accessSync, createReadStream, watch } from "node:fs";
 import { EventEmitter } from "node:stream";
 import { parseBuffer } from ".";
-import { BaseMapping } from "./mapping";
-import { MappingClass } from "./types";
+import { BaseMapping, getDefaultStates } from "./mapping";
+import { ButtonStates, ControllerEvent, Input, MappingClass, State } from "./types";
 import constants from "node:constants";
 import path from "node:path";
+import TypedEventEmitter from "typed-emitter";
 
-export class Device extends EventEmitter {
+export type MacroConfig = {
+  inputs: Pick<ControllerEvent, 'input' | 'state'>[],
+  exclusive: boolean,
+}
+
+type DeviceEvents = {
+  'connect': () => void;
+  'disconnect': () => void;
+  'state-change': (event: ControllerEvent) => void;
+  'macro': (id: string, MacroConfig) => void;
+}
+export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceEvents>) {
   private inputPath: string;
   private name: string;
   private mapping: MappingClass;
+  public buttonStates: ButtonStates;
+
+  public macros: {
+    [id: string]: MacroConfig
+  } = {};
 
   public autoReconnect = true;
 
@@ -19,6 +36,8 @@ export class Device extends EventEmitter {
     this.inputPath = options.path;
     this.name = options.name;
     this.mapping = options.mapping || new BaseMapping();
+
+    this.buttonStates = getDefaultStates();
   }
 
   waitForFile(): Promise<boolean> {
@@ -63,34 +82,28 @@ export class Device extends EventEmitter {
     });
 
     stream.on('open', (fd) => {
-      this.emit('connect', this.name);
+      console.debug('File opened, resetting button states');
+      this.buttonStates = getDefaultStates();
+      this.emit('connect');
     });
 
     stream.on('data', (buf: any) => {
-      const chunk = 24;
+      const chunkSize = 24;
 
-      for (let i = 0, j = buf.length; i < j; i += chunk) {
-        const event = parseBuffer(buf.slice(i, i + chunk));
-        if (event.type == 'EV_MSC') {
-          continue;
-        }
+      for (let i = 0, j = buf.length; i < j; i += chunkSize) {
+        const event = parseBuffer(buf.slice(i, i + chunkSize));
+        const inputs = this.mapping.mapEvent(event);
 
         // TODO:: Buffer events up to a SYNC and then send?
-
-        if (event.type in this.mapping) {
-          if (event.code in this.mapping[event.type]) {
-            const map = this.mapping[event.type][event.code];
-            const resp = map.map.bind(this.mapping)(map.input, event.value);
-            if (resp)
-              resp.map(e => this.emit('input', e));
-          } else {
-            console.debug('Unhandled event code', event.code, 'for type', event.type);
+        inputs?.forEach((e) => {
+          if (this.buttonStates[e.input].state !== e.state) {
+            this.buttonStates[e.input].state = e.state;
+            this.emit('state-change', e);
+            this.checkMacros(e);
           }
-        } else {
-          console.debug('Unhandled event type', event.type);
-        }
+        });
       }
-    })
+    });
 
     const connectionDropped = () => {
       this.emit('disconnect');
@@ -103,13 +116,60 @@ export class Device extends EventEmitter {
       console.error('stream error', e);
       connectionDropped();
     }).on('close', () => {
-      // console.log('closed stream');
+      console.log('closed stream');
       connectionDropped();
     }).on('end', () => {
-      // console.log('end of stream');
+      console.log('end of stream');
       connectionDropped();
     });
 
     return true;
+  }
+
+  checkMacros(trigger: ControllerEvent) {
+
+    const nonNeutral: Input[] = [];
+    for (const input in this.buttonStates) {
+      const state = this.buttonStates[input].state;
+      if (state !== State.Neutral && state !== State.Released) {
+        nonNeutral.push(input as keyof typeof this.buttonStates);
+      }
+    }
+    nonNeutral.sort();
+
+    const checkOnly = (inputs: Input[]) => {
+      return nonNeutral.length === inputs.length && inputs.filter(i => nonNeutral.includes(i)).length === inputs.length;
+    }
+
+    for (const id in this.macros) {
+      const macro = this.macros[id];
+      // If it's exclusive, make sure everything else is neutral
+      if (macro.exclusive && !checkOnly(macro.inputs.map(i => i.input)))
+        continue;
+
+      let matchesStates = true;
+      let triggerPresent = false;
+      for (const { input, state } of macro.inputs) {
+        if (this.buttonStates[input].state !== state) {
+          matchesStates = false;
+          break;
+        }
+
+        if (input === trigger.input && state === trigger.state) {
+          triggerPresent = true;
+          break;
+        }
+      }
+
+      // If it's exclusive, make sure the current trigger for this check is actually one of the inputs involved.
+      // This prevents knocking the thumb stick causing it to re-fire an unrelated macro
+      if (macro.exclusive && !triggerPresent)
+        continue;
+
+      if (matchesStates) {
+        this.emit('macro', id, macro);
+      }
+    }
+    return;
   }
 }

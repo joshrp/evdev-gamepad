@@ -1,12 +1,12 @@
 
 import { describe, expect, test } from "bun:test";
-import { Device } from "./Device";
+import { Device, MacroConfig } from "./Device";
 import path from "path";
-import { Input, State } from "./types";
+import { ControllerEvent, Input, State } from "./types";
 
-describe("input parser", () => {
+describe("Input Parsing for", () => {
   test.each([
-    [ "face_buttons.bin", [
+    ["face_buttons.bin", [
       [Input.South, State.Pressed],
       [Input.South, State.Released],
       [Input.East, State.Pressed],
@@ -16,7 +16,7 @@ describe("input parser", () => {
       [Input.West, State.Pressed],
       [Input.West, State.Released],
     ]],
-    [ "bumpers_options.bin", [
+    ["bumpers_options.bin", [
       [Input.LeftBumper, State.Pressed],
       [Input.LeftBumper, State.Released],
       [Input.RightBumper, State.Pressed],
@@ -28,7 +28,7 @@ describe("input parser", () => {
       [Input.Platform, State.Pressed],
       [Input.Platform, State.Released],
     ]],
-    [ "sticks.bin", [
+    ["sticks.bin", [
       [Input.LeftStickX, State.Left],
       [Input.LeftStickX, State.Neutral],
       [Input.LeftStickY, State.Up],
@@ -50,7 +50,7 @@ describe("input parser", () => {
       [Input.RightThumb, State.Pressed],
       [Input.RightThumb, State.Released],
     ]],
-    [ "dpad_triggers.bin", [
+    ["dpad_triggers.bin", [
       [Input.DPadX, State.Left],
       [Input.DPadX, State.Neutral],
       [Input.DPadY, State.Up],
@@ -67,18 +67,18 @@ describe("input parser", () => {
   ])("%p", (test_file, expButtons) => {
     return new Promise(async (resolve) => {
       const controller = new Device({
-        path: path.join(__dirname, "..","test_data", test_file),
+        path: path.join(__dirname, "..", "test_data", test_file),
         name: test_file + "_test",
       });
 
-      const buttons: string[][] = [];
-      controller.on('input', (event) => {
-        buttons.push([event.input, event.state]);
+      const changes: string[][] = [];
+      controller.on('state-change', (event) => {
+        changes.push([event.input, event.state]);
       });
 
       controller.on('disconnect', () => {
         try {
-          expect(buttons).toEqual(expButtons);
+          expect(changes).toEqual(expButtons);
         } catch (e) {
           throw e
         } finally {
@@ -90,5 +90,85 @@ describe("input parser", () => {
       expect(await controller.connect()).toBeTrue();
     });
 
-  }, 50);
+  }, 100);
+});
+
+describe('Macros', () => {
+  test.each([
+    [
+      "macro_easy.bin",
+      {
+        inputs: [
+          {
+            input: Input.LeftBumper,
+            state: State.Pressed
+          },
+          {
+            input: Input.LeftBumper,
+            state: State.Pressed
+          },
+          {
+            input: Input.Platform,
+            state: State.Pressed
+          },
+        ],
+        exclusive: true,
+      },
+      1
+    ],
+    [
+      "macro_exclusive_checks.bin",
+      {
+        inputs: [
+          {
+            input: Input.LeftBumper,
+            state: State.Pressed
+          },
+          {
+            input: Input.LeftBumper,
+            state: State.Pressed
+          },
+          {
+            input: Input.Platform,
+            state: State.Pressed
+          },
+        ],
+        exclusive: true,
+      },
+      1
+    ]
+  ])('Should emit a single event for a Macro %s', (test_file, macro: MacroConfig, callCount) => {
+      return new Promise(async (resolve) => {
+        const controller = new Device({
+          path: path.join(__dirname, "..", "test_data", test_file),
+          name: test_file + "_test",
+        });
+
+        let called = 0;
+        controller.macros[test_file] = macro;
+
+        controller.on('macro', (id, config) => {
+          try {
+            expect(id).toEqual(test_file);
+            expect(config).toEqual(macro);
+            called++;
+          } catch (e) {
+            throw e
+          }
+        });
+
+        controller.on('disconnect', () => {
+          try {
+            expect(called).toEqual(callCount);
+          } catch (e) {
+            throw e
+          } finally {
+            resolve(null);
+          }
+        });
+
+        controller.autoReconnect = false;
+        expect(await controller.connect()).toBeTrue();
+      });
+    }, 100);
 });

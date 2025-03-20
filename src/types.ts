@@ -22,6 +22,8 @@ type ButtonMap = {
 }
 type ValuesOf<T> = T[keyof T];
 export interface MappingClass {
+  mapEvent: (event: EvdevEvent) => ControllerEvent[] | null;
+
   EV_ABS: Partial<Record<ValuesOf<typeof codes.EV_ABS>, ButtonMap>>;
   EV_KEY: Partial<Record<ValuesOf<typeof codes.EV_KEY>, ButtonMap>>;
 }

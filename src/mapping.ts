@@ -7,8 +7,6 @@ export class BaseMapping implements MappingClass {
   public TRIGGER_TOLERANCE = 300;
   public EV_KEY_PRESSED_VALUE = 1;
 
-  ButtonStates: ButtonStates = getDefaultStates();
-
   EV_ABS = {
     ABS_Z: { input: Input.RightStickX, map: this.StickEvent },
     ABS_RZ: { input: Input.RightStickY, map: this.StickEvent },
@@ -39,6 +37,17 @@ export class BaseMapping implements MappingClass {
     SYN_CONFIG: { input: Input.Ignore, map: () => null }
   }
 
+  mapEvent(event: EvdevEvent): ControllerEvent[] | null {
+    let resp: ControllerEvent[] = [];
+    if (event.type == 'EV_MSC') {
+      return resp;
+    }
+
+    const map = this[event.type]?.[event.code];
+    resp = map?.map.bind(this)(map?.input, event.value);
+    return resp;
+  }
+
   StickEvent(input: Input, value: number): ControllerEvent[] | null {
     let state = value > this.STICK_CENTRE ? State.Down : State.Up;
     if (input === Input.LeftStickX || input === Input.RightStickX)
@@ -46,11 +55,6 @@ export class BaseMapping implements MappingClass {
 
     if (Math.abs(value - this.STICK_CENTRE) < this.STICK_DEADZONE)
       state = State.Neutral;
-
-    if (this.ButtonStates[input].state !== state)
-      this.ButtonStates[input].state = state;
-    else
-      return null;
 
     return [{
       type: 'stick' as "stick",
@@ -62,11 +66,6 @@ export class BaseMapping implements MappingClass {
   ButtonEvent(input: Input, value: number) {
     const state = value === this.EV_KEY_PRESSED_VALUE ? State.Pressed : State.Released;
 
-    if (this.ButtonStates[input].state !== state)
-      this.ButtonStates[input].state = state;
-    else
-      return null;
-
     return [{
       type: "button" as "button",
       input: input,
@@ -76,11 +75,6 @@ export class BaseMapping implements MappingClass {
 
   TriggerEvent(input: Input, value: number) {
     const state = value > this.TRIGGER_TOLERANCE ? State.Pressed : State.Released;
-
-    if (this.ButtonStates[input].state !== state)
-      this.ButtonStates[input].state = state;
-    else
-      return null;
 
     return [{
       type: "button" as "button",
@@ -98,11 +92,6 @@ export class BaseMapping implements MappingClass {
       if (input === Input.DPadY) state = State.Up;
       else state = State.Left;
     }
-
-    if (this.ButtonStates[input].state !== state)
-      this.ButtonStates[input].state = state;
-    else
-      return null;
 
     return [{
       type: "button" as "button",
