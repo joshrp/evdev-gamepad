@@ -1,4 +1,4 @@
-import { ButtonStates, ControllerEvent, EvdevEvent, Input, MappingClass, State, Sticks } from "./types";
+import { ButtonStates, ControllerEvent, EvdevEvent, Input, MappingClass, State } from "./types";
 
 export class BaseMapping implements MappingClass {
   public STICK_DEADZONE = 20000;
@@ -6,6 +6,15 @@ export class BaseMapping implements MappingClass {
   public STICK_CENTRE = 65536 / 2
   public TRIGGER_TOLERANCE = 300;
   public EV_KEY_PRESSED_VALUE = 1;
+
+  public inputGroups: {
+    sticks: [Input.LeftStickX, Input.LeftStickY, Input.RightStickX, Input.RightStickY],
+    dPad: [Input.DPadX, Input.DPadY],
+    triggers: [Input.LeftTrigger, Input.RightTrigger],
+    faceButtons: [Input.South, Input.East, Input.West, Input.North],
+    bumpers: [Input.LeftBumper, Input.RightBumper],
+    options: [Input.Back, Input.Platform, Input.Start],
+  };
 
   EV_ABS = {
     ABS_Z: { input: Input.RightStickX, map: this.StickEvent },
@@ -85,10 +94,10 @@ export class BaseMapping implements MappingClass {
 
   DPadEvent(input: Input, value: number) {
     let state: State = State.Neutral;
-    if(value === 1) {
+    if (value === 1) {
       if (input === Input.DPadY) state = State.Down;
       else state = State.Right;
-    } else if(value === -1) {
+    } else if (value === -1) {
       if (input === Input.DPadY) state = State.Up;
       else state = State.Left;
     }

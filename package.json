@@ -26,9 +26,7 @@
   "homepage": "https://github.com/joshrp/evdev-wrapper#readme",
   "devDependencies": {
     "@types/bun": "^1.2.5",
-    "typescript": "^5.8.2",
     "typed-emitter": "^2.1.0"
   },
-  "dependencies": {
-  }
+  "dependencies": {}
 }

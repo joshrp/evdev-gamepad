@@ -1,16 +1,11 @@
 import { accessSync, createReadStream, ReadStream, watch } from "node:fs";
 import { EventEmitter } from "node:stream";
-import { parseBuffer } from ".";
+import { parseBuffer } from "./lib";
 import { BaseMapping, getDefaultStates } from "./mapping";
-import { ButtonStates, ControllerEvent, Input, MappingClass, State } from "./types";
+import { ButtonStates, ControllerEvent, Input, MacroConfig, MappingClass, State } from "./types";
 import constants from "node:constants";
 import path from "node:path";
 import TypedEventEmitter from "typed-emitter";
-
-export type MacroConfig = {
-  inputs: Pick<ControllerEvent, 'input' | 'state'>[],
-  exclusive: boolean,
-}
 
 type DeviceEvents = {
   'connect': () => void;
@@ -125,6 +120,7 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
       console.log('end of stream');
       connectionDropped();
     });
+
     this.currentStream = stream;
     return true;
   }

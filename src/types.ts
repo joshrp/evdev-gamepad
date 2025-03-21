@@ -1,5 +1,3 @@
-import { codes } from "./ev_types";
-
 export type EvdevEvent = {
   time: {
     tv_sec: number,
@@ -13,12 +11,6 @@ export type ControllerEvent = {
   type: "button" | "stick",
   input: Input,
   state: State,
-}
-
-type MappingFunction = (input: Input, value: number) => ControllerEvent[] | null;
-type ButtonMap = {
-  input: Input,
-  map: MappingFunction
 }
 
 export interface MappingClass {
@@ -49,13 +41,6 @@ export enum Input {
   Ignore = 'Ignore'
 };
 
-export const Sticks = [Input.LeftStickX, Input.LeftStickY, Input.RightStickX, Input.RightStickY];
-export const DPad = [Input.DPadX , Input.DPadY];
-export const Triggers = [Input.LeftTrigger , Input.RightTrigger];
-export const FaceButtons = [Input.South , Input.East , Input.West , Input.North];
-export const Bumpers = [Input.LeftBumper , Input.RightBumper];
-export const Options = [Input.Back , Input.Platform , Input.Start];
-
 export enum State {
   Released = 'Released',
   Neutral = 'Neutral',
@@ -68,3 +53,8 @@ export enum State {
 
 export type ButtonState = { state: State, input: Input }
 export type ButtonStates = Record<Input, ButtonState>
+
+export type MacroConfig = {
+  inputs: Pick<ControllerEvent, 'input' | 'state'>[],
+  exclusive: boolean,
+}

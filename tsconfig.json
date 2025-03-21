@@ -29,8 +29,7 @@
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": true
   },
-
   "files": [
-    "./src/index.ts"
+    "src/index.ts"
   ]
 }

@@ -1,8 +1,8 @@
 
 import { describe, expect, it, test } from "bun:test";
-import { Device, MacroConfig } from "./Device";
+import { Device } from "./Device";
 import path from "path";
-import { Input, State } from "./types";
+import { Input, State, MacroConfig } from "./types";
 import { EchoMapping } from "../mappings/echoMap";
 
 describe("Input Parsing for", () => {
