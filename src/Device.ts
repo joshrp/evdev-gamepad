@@ -1,4 +1,4 @@
-import { accessSync, createReadStream, watch } from "node:fs";
+import { accessSync, createReadStream, ReadStream, watch } from "node:fs";
 import { EventEmitter } from "node:stream";
 import { parseBuffer } from ".";
 import { BaseMapping, getDefaultStates } from "./mapping";
@@ -22,13 +22,16 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
   private inputPath: string;
   private name: string;
   private mapping: MappingClass;
+  private currentStream: ReadStream | null = null;
+
   public buttonStates: ButtonStates;
+  public reconnectDelay: number = 500;
+  public autoReconnect = true;
 
   public macros: {
     [id: string]: MacroConfig
   } = {};
 
-  public autoReconnect = true;
 
   constructor(options: { path: string, name: string, mapping?: MappingClass }) {
     super();
@@ -109,7 +112,7 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
       this.emit('disconnect');
       stream.close();
       if (this.autoReconnect)
-        this.connect();
+        setTimeout(() => this.connect(), this.reconnectDelay);
     };
 
     stream.on('error', (e) => {
@@ -122,7 +125,7 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
       console.log('end of stream');
       connectionDropped();
     });
-
+    this.currentStream = stream;
     return true;
   }
 
@@ -171,5 +174,13 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
       }
     }
     return;
+  }
+
+  /**
+   * Only intended for test use
+   * @private
+   */
+  __closeStream() {
+    this.currentStream?.close();
   }
 }

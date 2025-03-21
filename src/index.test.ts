@@ -1,8 +1,9 @@
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, it, test } from "bun:test";
 import { Device, MacroConfig } from "./Device";
 import path from "path";
-import { ControllerEvent, Input, State } from "./types";
+import { Input, State } from "./types";
+import { EchoMapping } from "../mappings/echoMap";
 
 describe("Input Parsing for", () => {
   test.each([
@@ -171,4 +172,71 @@ describe('Macros', () => {
         expect(await controller.connect()).toBeTrue();
       });
     }, 100);
+});
+
+describe('Auto Reconnect', () => {
+  test('Should reconnect after disconnect', async (done) => {
+    const controller = new Device({
+      name: "auto_reconnect_test",
+      path: path.join(__dirname, "..", "test_data", "sticks.bin"),
+    });
+
+    let connectCount = 0;
+    controller.on('connect', () => {
+      connectCount++;
+      // console.log("TEST Connect now", connectCount);
+    });
+    controller.on('disconnect', () => {
+      // console.log("TEST Disconnect");
+    });
+
+
+    /**
+     * I don't like this test, it's timing based :(
+     * But I can't think of a better way to test this right now
+     * Auto reconnect is done on a little delay (to prevent thrashing).
+     * So from the time it notices the disconnect, I know how many
+     * reconnects "should" be attempted, but only by timing
+     */
+    try {
+      controller.autoReconnect = true;
+      controller.reconnectDelay = 100;
+      expect(await controller.connect()).toBeTrue();
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(connectCount).toEqual(1);
+
+      controller.__closeStream();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(connectCount).toEqual(2);
+      controller.autoReconnect = false;
+
+      controller.__closeStream();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(connectCount).toEqual(2);
+
+    } catch (e) {
+      throw e;
+    } finally {
+      // Make sure we close so it doesn't hang forever.
+      controller.__closeStream();
+
+      done();
+    }
+  });
+});
+
+describe('Echo Mapping', () => {
+  it('Can accept a new "external" mapping', async (done) => {
+    const controller = new Device({
+      name: "echo_test",
+      mapping: new EchoMapping(),
+      path: path.join(__dirname, "..", "test_data", "face_buttons.bin"),
+    });
+    controller.autoReconnect = false;
+    controller.on('disconnect', () => {
+      done();
+    });
+    expect(await controller.connect()).toBeTrue();
+  });
 });
