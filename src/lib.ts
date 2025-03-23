@@ -1,6 +1,6 @@
 
-import type { EvdevEvent } from './types';
-import * as evTypes from './ev_types';
+import type { EvdevEvent } from './types.js';
+import * as evTypes from './ev_types.js';
 
 const is64Bit = process.arch.includes('64');
 export const parseBuffer = (buf: Buffer): EvdevEvent => {

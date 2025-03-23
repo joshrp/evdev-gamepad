@@ -1,0 +1,13 @@
+import { Device } from '../dist/index.js';
+
+const device = new Device({
+  path: "test_data/face_buttons.bin",
+});
+
+device.on('state-change', (state) => {
+  console.log('[INPUT]', state.input, state.state) // LeftBumper Pressed
+});
+
+// `await` is optional here and the return value doesn't tell you much.
+// i.e. device file is present but not necessarily inputting or the correct file
+await device.connect();

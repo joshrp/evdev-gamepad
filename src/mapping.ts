@@ -1,5 +1,10 @@
-import { ButtonStates, ControllerEvent, EvdevEvent, Input, MappingClass, State } from "./types";
+import type { ButtonStates, ControllerEvent, EvdevEvent, MappingClass } from "./types.js";
+import { Input, State} from "./types.js";
 
+export type ButtonMappingBasic = {
+  input: Input,
+  map: (input: Input, value: number) => ControllerEvent[] | null
+}
 export class BaseMapping implements MappingClass {
   public STICK_DEADZONE = 20000;
   public STICK_MAX = 65536;
@@ -7,7 +12,7 @@ export class BaseMapping implements MappingClass {
   public TRIGGER_TOLERANCE = 300;
   public EV_KEY_PRESSED_VALUE = 1;
 
-  public inputGroups: {
+  public inputGroups = {
     sticks: [Input.LeftStickX, Input.LeftStickY, Input.RightStickX, Input.RightStickY],
     dPad: [Input.DPadX, Input.DPadY],
     triggers: [Input.LeftTrigger, Input.RightTrigger],
@@ -16,7 +21,7 @@ export class BaseMapping implements MappingClass {
     options: [Input.Back, Input.Platform, Input.Start],
   };
 
-  EV_ABS = {
+  EV_ABS: {[key: string]: ButtonMappingBasic} = {
     ABS_Z: { input: Input.RightStickX, map: this.StickEvent },
     ABS_RZ: { input: Input.RightStickY, map: this.StickEvent },
     ABS_X: { input: Input.LeftStickX, map: this.StickEvent },
@@ -27,7 +32,7 @@ export class BaseMapping implements MappingClass {
     ABS_HAT0Y: { input: Input.DPadY, map: this.DPadEvent },
   }
 
-  EV_KEY = {
+  EV_KEY: {[key: string]: ButtonMappingBasic} = {
     BTN_A: { input: Input.South, map: this.ButtonEvent },
     BTN_B: { input: Input.East, map: this.ButtonEvent },
     BTN_X: { input: Input.West, map: this.ButtonEvent },
@@ -41,19 +46,27 @@ export class BaseMapping implements MappingClass {
     BTN_MODE: { input: Input.Platform, map: this.ButtonEvent },
   };
 
-  EV_SYN = {
+  EV_SYN: {[key: string]: ButtonMappingBasic} = {
     SYN_REPORT: { input: Input.Ignore, map: () => null },
     SYN_CONFIG: { input: Input.Ignore, map: () => null }
   }
 
   mapEvent(event: EvdevEvent): ControllerEvent[] | null {
-    let resp: ControllerEvent[] = [];
+    let resp: ControllerEvent[] | null = null;
     if (event.type == 'EV_MSC') {
       return resp;
     }
 
-    const map = this[event.type]?.[event.code];
-    resp = map?.map.bind(this)(map?.input, event.value);
+    let map: ButtonMappingBasic | null = null;
+    if (event.type == 'EV_ABS' && event.code in this.EV_ABS)
+      map = this.EV_ABS[event.code];
+    if (event.type == 'EV_KEY' && event.code in this.EV_KEY)
+      map = this.EV_KEY[event.code];
+    if (event.type == 'EV_SYN' && event.code in this.EV_SYN)
+      map = this.EV_SYN[event.code];
+
+    if(!map) return null;
+    resp = map.map.bind(this)(map?.input, event.value);
     return resp;
   }
 

@@ -1,9 +1,7 @@
 
-import { describe, expect, it, test } from "bun:test";
-import { Device } from "./Device";
-import path from "path";
-import { Input, State, MacroConfig } from "./types";
-import { EchoMapping } from "../mappings/echoMap";
+import { Device, Input, State, MacroConfig } from "../src/index";
+import { EchoMapping } from "../src/mappings/echoMap.js";
+import * as path from "path";
 
 describe("Input Parsing for", () => {
   test.each([
@@ -69,7 +67,6 @@ describe("Input Parsing for", () => {
     return new Promise(async (resolve) => {
       const controller = new Device({
         path: path.join(__dirname, "..", "test_data", test_file),
-        name: test_file + "_test",
       });
 
       const changes: string[][] = [];
@@ -87,8 +84,7 @@ describe("Input Parsing for", () => {
         }
       });
 
-      controller.autoReconnect = false;
-      expect(await controller.connect()).toBeTrue();
+      expect(await controller.connect()).toBeTruthy();
     });
 
   }, 100);
@@ -139,104 +135,123 @@ describe('Macros', () => {
       1
     ]
   ])('Should emit a single event for a Macro %s', (test_file, macro: MacroConfig, callCount) => {
-      return new Promise(async (resolve) => {
-        const controller = new Device({
-          path: path.join(__dirname, "..", "test_data", test_file),
-          name: test_file + "_test",
-        });
-
-        let called = 0;
-        controller.macros[test_file] = macro;
-
-        controller.on('macro', (id, config) => {
-          try {
-            expect(id).toEqual(test_file);
-            expect(config).toEqual(macro);
-            called++;
-          } catch (e) {
-            throw e
-          }
-        });
-
-        controller.on('disconnect', () => {
-          try {
-            expect(called).toEqual(callCount);
-          } catch (e) {
-            throw e
-          } finally {
-            resolve(null);
-          }
-        });
-
-        controller.autoReconnect = false;
-        expect(await controller.connect()).toBeTrue();
+    return new Promise(async (resolve) => {
+      const controller = new Device({
+        path: path.join(__dirname, "..", "test_data", test_file),
       });
-    }, 100);
+
+      let called = 0;
+      controller.macros[test_file] = macro;
+
+      controller.on('macro', (id, config) => {
+        try {
+          expect(id).toEqual(test_file);
+          expect(config).toEqual(macro);
+          called++;
+        } catch (e) {
+          throw e
+        }
+      });
+
+      controller.on('disconnect', () => {
+        try {
+          expect(called).toEqual(callCount);
+        } catch (e) {
+          throw e
+        } finally {
+          resolve(null);
+        }
+      });
+
+      expect(await controller.connect()).toBeTruthy();
+    });
+  }, 100);
 });
 
 describe('Auto Reconnect', () => {
-  test('Should reconnect after disconnect', async (done) => {
-    const controller = new Device({
-      name: "auto_reconnect_test",
-      path: path.join(__dirname, "..", "test_data", "sticks.bin"),
+  test('Should reconnect after disconnect', () => {
+    return new Promise(async (resolve) => {
+      const controller = new Device({
+        path: path.join(__dirname, "..", "test_data", "sticks.bin"),
+      });
+
+      let connectCount = 0;
+      controller.on('connect', () => {
+        connectCount++;
+        // console.log("TEST Connect now", connectCount);
+      });
+      controller.on('disconnect', () => {
+        // console.log("TEST Disconnect");
+      });
+      // Test data file aren't character device files so normally connecting would be skipped
+      controller.ignoreFileType = true;
+
+      const waitFor = (count: number, timeout: number) => {
+        return new Promise((resolve, reject) => {
+          const interval = setInterval(() => {
+            if (connectCount >= count) {
+              clearInterval(interval);
+              clearTimeout(timer);
+              resolve(null);
+            }
+          }, 1);
+
+          const timer = setTimeout(() => {
+            clearInterval(interval);
+            if (connectCount < count) reject('Timeout');
+            else resolve(null);
+          }, timeout);
+        });
+      }
+
+      try {
+        controller.autoReconnect = true;
+        controller.reconnectDelay = 100;
+        expect(await controller.connect()).toBeTruthy();
+
+        await waitFor(1, 200);
+        expect(connectCount).toEqual(1);
+        controller.__closeStream();
+
+        await waitFor(2, 200);
+        expect(connectCount).toEqual(2);
+        controller.autoReconnect = false;
+
+        controller.__closeStream();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        expect(connectCount).toEqual(2);
+
+      } catch (e) {
+        throw e;
+      } finally {
+        // Make sure we close so it doesn't hang forever.
+        controller.__closeStream();
+        resolve(null);
+      }
     });
-
-    let connectCount = 0;
-    controller.on('connect', () => {
-      connectCount++;
-      // console.log("TEST Connect now", connectCount);
-    });
-    controller.on('disconnect', () => {
-      // console.log("TEST Disconnect");
-    });
-
-
-    /**
-     * I don't like this test, it's timing based :(
-     * But I can't think of a better way to test this right now
-     * Auto reconnect is done on a little delay (to prevent thrashing).
-     * So from the time it notices the disconnect, I know how many
-     * reconnects "should" be attempted, but only by timing
-     */
-    try {
-      controller.autoReconnect = true;
-      controller.reconnectDelay = 100;
-      expect(await controller.connect()).toBeTrue();
-
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(connectCount).toEqual(1);
-
-      controller.__closeStream();
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      expect(connectCount).toEqual(2);
-      controller.autoReconnect = false;
-
-      controller.__closeStream();
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(connectCount).toEqual(2);
-
-    } catch (e) {
-      throw e;
-    } finally {
-      // Make sure we close so it doesn't hang forever.
-      controller.__closeStream();
-
-      done();
-    }
   });
+
 });
 
 describe('Echo Mapping', () => {
-  it('Can accept a new "external" mapping', async (done) => {
-    const controller = new Device({
-      name: "echo_test",
-      mapping: new EchoMapping(),
-      path: path.join(__dirname, "..", "test_data", "face_buttons.bin"),
+  it('Can accept a new "external" mapping', async () => {
+    return new Promise(async (resolve, reject) => {
+      let controller;
+      try {
+        controller = new Device({
+          mapping: new EchoMapping(),
+          path: path.join(__dirname, "..", "test_data", "face_buttons.bin"),
+        });
+        controller.on('disconnect', () => {
+          resolve(null);
+        });
+        expect(await controller.connect()).toBeTruthy();
+      } catch (e) {
+        reject(e);
+      } finally {
+        controller?.__closeStream();
+      }
     });
-    controller.autoReconnect = false;
-    controller.on('disconnect', () => {
-      done();
-    });
-    expect(await controller.connect()).toBeTrue();
   });
+
 });

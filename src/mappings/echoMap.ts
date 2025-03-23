@@ -1,4 +1,4 @@
-import { ControllerEvent, EvdevEvent, MappingClass } from "../src/types";
+import { ControllerEvent, EvdevEvent, MappingClass } from "../types.js";
 
 /**
  * This mapping just spits out the EVDEV codes from the controller

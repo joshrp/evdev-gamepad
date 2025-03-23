@@ -1,24 +1,37 @@
-import { accessSync, createReadStream, ReadStream, watch } from "node:fs";
-import { EventEmitter } from "node:stream";
-import { parseBuffer } from "./lib";
-import { BaseMapping, getDefaultStates } from "./mapping";
-import { ButtonStates, ControllerEvent, Input, MacroConfig, MappingClass, State } from "./types";
-import constants from "node:constants";
-import path from "node:path";
-import TypedEventEmitter from "typed-emitter";
+import { accessSync, createReadStream, ReadStream, watch, constants, statSync } from "node:fs";
+import * as path from "node:path";
+import { EventEmitter } from "node:events";
+
+import { parseBuffer } from "./lib.js";
+import { BaseMapping, getDefaultStates } from "./mapping.js";
+
+import {
+  State,
+  type ButtonStates,
+  type ControllerEvent,
+  type Input,
+  type MacroConfig,
+  type MappingClass
+} from "./types.js";
 
 type DeviceEvents = {
   'connect': () => void;
   'disconnect': () => void;
   'state-change': (event: ControllerEvent) => void;
-  'macro': (id: string, MacroConfig) => void;
+  'macro': (id: string, config: MacroConfig) => void;
 }
-export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceEvents>) {
+
+enum FileType {
+  Normal,
+  Special,
+}
+
+export class Device extends EventEmitter {
   private inputPath: string;
-  private name: string;
   private mapping: MappingClass;
   private currentStream: ReadStream | null = null;
 
+  public ignoreFileType: boolean = false;
   public buttonStates: ButtonStates;
   public reconnectDelay: number = 500;
   public autoReconnect = true;
@@ -27,16 +40,28 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
     [id: string]: MacroConfig
   } = {};
 
-
-  constructor(options: { path: string, name: string, mapping?: MappingClass }) {
+  constructor(options: {
+    /**
+     * Path to the device file, absolute path recommended
+     */
+    path: string,
+    /**
+     * Mapping class to use for this device
+     * @default BaseMapping
+     */
+    mapping?: MappingClass
+  }) {
     super();
 
     this.inputPath = options.path;
-    this.name = options.name;
     this.mapping = options.mapping || new BaseMapping();
 
     this.buttonStates = getDefaultStates();
   }
+
+  on<T extends keyof DeviceEvents, K extends DeviceEvents[T]>(event: T, listener: K): this {
+    return super.on(event, listener);
+  };
 
   waitForFile(): Promise<boolean> {
     return new Promise((resolve, reject) => {
@@ -54,24 +79,29 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
     });
   }
 
-  fileExists(): boolean {
-    let exists = false;
+  fileExists() {
+    let fType: FileType | false = false;
     try {
       accessSync(this.inputPath, constants.R_OK);
-      exists = true;
-    } catch (e) {
+      const stats = statSync(this.inputPath);
+      if (stats.size === 0) {
+        fType = FileType.Special;
+      } else {
+        fType = FileType.Normal;
+      }
+    } catch (e: any) {
       if (e.code === 'ENOENT') {
-        exists = false;
+        fType = false;
       } else {
         throw e;
       }
     }
-    return exists;
+    return fType;
   }
 
   async connect() {
-    let exists = await this.fileExists();
-    if (!exists)
+    let fType = await this.fileExists();
+    if (fType === false)
       await this.waitForFile();
 
     const stream = createReadStream(this.inputPath, {
@@ -79,8 +109,8 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
       autoClose: true,
     });
 
-    stream.on('open', (fd) => {
-      console.debug('File opened, resetting button states');
+    stream.on('open', () => {
+      console.debug(`Device file opened ${this.inputPath}. Restting Buttons`);
       this.buttonStates = getDefaultStates();
       this.emit('connect');
     });
@@ -106,18 +136,25 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
     const connectionDropped = () => {
       this.emit('disconnect');
       stream.close();
-      if (this.autoReconnect)
-        setTimeout(() => this.connect(), this.reconnectDelay);
+
+      if (this.autoReconnect) {
+        if (this.ignoreFileType == true || fType === FileType.Special) {
+          setTimeout(() => this.connect(), this.reconnectDelay);
+        } else {
+          console.debug('File does not look like a device file. Not reconnecting');
+          return;
+        }
+      }
     };
 
     stream.on('error', (e) => {
-      console.error('stream error', e);
+      console.error('Device file stream error', e);
       connectionDropped();
     }).on('close', () => {
-      console.log('closed stream');
+      // console.log('closed stream');
       connectionDropped();
     }).on('end', () => {
-      console.log('end of stream');
+      // console.log('end of stream');
       connectionDropped();
     });
 
@@ -128,10 +165,11 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
   checkMacros(trigger: ControllerEvent) {
 
     const nonNeutral: Input[] = [];
+    type buttonKey = keyof typeof this.buttonStates;
     for (const input in this.buttonStates) {
-      const state = this.buttonStates[input].state;
+      const state = this.buttonStates[input as buttonKey].state;
       if (state !== State.Neutral && state !== State.Released) {
-        nonNeutral.push(input as keyof typeof this.buttonStates);
+        nonNeutral.push(input as buttonKey);
       }
     }
     nonNeutral.sort();
@@ -149,6 +187,10 @@ export class Device extends (EventEmitter as new () => TypedEventEmitter<DeviceE
       let matchesStates = true;
       let triggerPresent = false;
       for (const { input, state } of macro.inputs) {
+        if (!(input in this.buttonStates)) {
+          console.debug('Invalid macro', id)
+          break
+        }
         if (this.buttonStates[input].state !== state) {
           matchesStates = false;
           break;
