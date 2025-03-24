@@ -1,7 +1,8 @@
 import { Device } from '../dist/index.js';
 
 const device = new Device({
-  path: "test_data/face_buttons.bin",
+  // Change this to /dev/input/event{X} for your device
+  path: "test_data/face_buttons.bin"
 });
 
 device.on('state-change', (state) => {

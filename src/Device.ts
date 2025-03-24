@@ -1,7 +1,8 @@
-import { accessSync, createReadStream, ReadStream, watch, constants, statSync } from "node:fs";
+import { accessSync, createReadStream, ReadStream, constants, statSync } from "node:fs";
 import * as path from "node:path";
 import { EventEmitter } from "node:events";
 
+import * as chokidar from 'chokidar';
 import { parseBuffer } from "./lib.js";
 import { BaseMapping, getDefaultStates } from "./mapping.js";
 
@@ -25,6 +26,8 @@ enum FileType {
   Normal,
   Special,
 }
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export class Device extends EventEmitter {
   private inputPath: string;
@@ -65,21 +68,27 @@ export class Device extends EventEmitter {
 
   waitForFile(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      const watcher = watch(path.dirname(this.inputPath), { persistent: true, recursive: false });
-      watcher.on('change', (event, filename) => {
-        if (event == 'change' && filename === path.basename(this.inputPath)) {
-          watcher.close();
+      try {
+        const watcher = chokidar.watch(path.dirname(this.inputPath), {
+          persistent: true,
+          ignored: (checkPath) => {
+            return checkPath !== this.inputPath && checkPath !== path.dirname(this.inputPath);
+          },
+        }).on('add', () => {
           resolve(true);
-        }
-      });
-      watcher.on('error', (e) => {
-        watcher.close();
+          watcher.close();
+        }).on('error', (e) => {
+          watcher.close();
+          reject(e);
+        });
+      } catch (e) {
+        console.error('Error watching for file', e);
         reject(e);
-      });
+      }
     });
   }
 
-  fileExists() {
+  fileExists(): boolean | FileType {
     let fType: FileType | false = false;
     try {
       accessSync(this.inputPath, constants.R_OK);
@@ -100,9 +109,13 @@ export class Device extends EventEmitter {
   }
 
   async connect() {
-    let fType = await this.fileExists();
-    if (fType === false)
-      await this.waitForFile();
+    let fType = this.fileExists();
+    if (fType === false) {
+      fType = await this.waitForFile();
+      // Evdev files can take a little time become readable after creation
+      await sleep(500);
+      fType = this.fileExists();
+    }
 
     const stream = createReadStream(this.inputPath, {
       flags: "r",
@@ -133,13 +146,16 @@ export class Device extends EventEmitter {
       }
     });
 
+    let reconnectTimer: NodeJS.Timeout | null = null;
     const connectionDropped = () => {
       this.emit('disconnect');
       stream.close();
 
       if (this.autoReconnect) {
         if (this.ignoreFileType == true || fType === FileType.Special) {
-          setTimeout(() => this.connect(), this.reconnectDelay);
+          console.debug('Reconnecting in', this.reconnectDelay, 'ms');
+          if (!reconnectTimer)
+            reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelay);
         } else {
           console.debug('File does not look like a device file. Not reconnecting');
           return;

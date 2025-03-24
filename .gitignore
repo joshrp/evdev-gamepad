@@ -1,6 +1,5 @@
 dist
 node_modules
 .nvmrc
-package-lock.json
 coverage
 *.js.map
