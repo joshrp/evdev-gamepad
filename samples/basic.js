@@ -1,4 +1,4 @@
-import { Device } from '../dist/index.js';
+import { Device } from 'evdev-gamepad';
 
 const device = new Device({
   // Change this to /dev/input/event{X} for your device

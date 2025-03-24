@@ -3,3 +3,4 @@ node_modules
 .nvmrc
 coverage
 *.js.map
+*.tgz

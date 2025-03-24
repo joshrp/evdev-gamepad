@@ -1,9 +1,8 @@
-import path from 'path';
 import { Device, Input, State } from '../dist/index.js';
-const __dirname = import.meta.dirname;
 
 const device = new Device({
-  path: path.join(__dirname, "..", "test_data", "macro_easy.bin"),
+  // Change this to /dev/input/event{X} for your device
+  path: "test_data/macro_easy.bin"
 });
 
 device.on('state-change', (state) => {
@@ -26,10 +25,10 @@ device.macros["shoulders"] = {
 
 // All macros fire the same event, use the ID to differentiate
 device.on('macro', (id, macro) => {
-  console.log('[MACRO]', id, macro.someRandomOtherDataToPass) // shoulders 42
+  console.log('[MACRO]', id, macro.someRandomOtherDataToPass)
+  // Outputs: `shoulders 42`
 });
 
-// `await` is optional here and the return value doesn't tell you much.
-// i.e. device file is present but not necessarily inputting or the correct file
+// `await` is optional here
 await device.connect();
 
