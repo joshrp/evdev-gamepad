@@ -3,8 +3,8 @@
     "outDir": "./dist",
 
     "sourceMap": true,
-    "target": "ES2020",
-    "module": "Node16",
+    "target": "ES6",
+    "module": "node16",
     "moduleResolution": "node16",
     // Best practices
     "strict": true,

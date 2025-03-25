@@ -1,6 +1,6 @@
 import { accessSync, createReadStream, ReadStream, constants, statSync } from "node:fs";
-import * as path from "node:path";
 import { EventEmitter } from "node:events";
+import path from "node:path";
 
 import * as chokidar from 'chokidar';
 import { parseBuffer } from "./lib.js";
@@ -66,15 +66,13 @@ export class Device extends EventEmitter {
     return super.on(event, listener);
   };
 
-  waitForFile(): Promise<boolean> {
+  static waitForFile(p: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
       try {
-        const watcher = chokidar.watch(path.dirname(this.inputPath), {
+        const watcher = chokidar.watch(p, {
           persistent: true,
-          ignored: (checkPath) => {
-            return checkPath !== this.inputPath && checkPath !== path.dirname(this.inputPath);
-          },
-        }).on('add', () => {
+
+        }).on('add', (file, stats) => {
           resolve(true);
           watcher.close();
         }).on('error', (e) => {
@@ -88,11 +86,11 @@ export class Device extends EventEmitter {
     });
   }
 
-  fileExists(): boolean | FileType {
+  static fileExists(p: string): boolean | FileType {
     let fType: FileType | false = false;
     try {
-      accessSync(this.inputPath, constants.R_OK);
-      const stats = statSync(this.inputPath);
+      accessSync(p, constants.R_OK);
+      const stats = statSync(p);
       if (stats.size === 0) {
         fType = FileType.Special;
       } else {
@@ -109,12 +107,18 @@ export class Device extends EventEmitter {
   }
 
   async connect() {
-    let fType = this.fileExists();
+    let fType = Device.fileExists(this.inputPath);
     if (fType === false) {
-      fType = await this.waitForFile();
+      if (Device.fileExists(path.dirname(this.inputPath)) === false) {
+        console.error('Containing directory does not exist', path.dirname(this.inputPath));
+        return false;
+      }
+      console.log('Waiting for device file to appear', this.inputPath);
+      fType = await Device.waitForFile(this.inputPath);
+      console.log('Device file appeared', this.inputPath);
       // Evdev files can take a little time become readable after creation
       await sleep(500);
-      fType = this.fileExists();
+      fType = Device.fileExists(this.inputPath);
     }
 
     const stream = createReadStream(this.inputPath, {
@@ -130,9 +134,19 @@ export class Device extends EventEmitter {
 
     stream.on('data', (buf: any) => {
       const chunkSize = 24;
+      if (buf.length < chunkSize) {
+        console.error('buffer too small, does not look like a gamepad event');
+        return;
+      }
 
       for (let i = 0, j = buf.length; i < j; i += chunkSize) {
-        const event = parseBuffer(buf.slice(i, i + chunkSize));
+        let event;
+        try {
+          event = parseBuffer(buf.slice(i, i + chunkSize));
+        } catch (e) {
+          console.error('Error parsing buffer', e);
+          continue;
+        }
         const inputs = this.mapping.mapEvent(event);
 
         // TODO:: Buffer events up to a SYNC and then send?
