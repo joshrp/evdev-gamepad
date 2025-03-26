@@ -7,10 +7,11 @@ import { parseBuffer } from "./lib.js";
 import { BaseMapping, getDefaultStates } from "./mapping.js";
 
 import {
+  type EvdevEvent,
   State,
+  Input,
   type ButtonStates,
   type ControllerEvent,
-  type Input,
   type MacroConfig,
   type MappingClass
 } from "./types.js";
@@ -20,6 +21,7 @@ type DeviceEvents = {
   'disconnect': () => void;
   'state-change': (event: ControllerEvent) => void;
   'macro': (id: string, config: MacroConfig) => void;
+  'raw-event': (event: EvdevEvent) => void;
 }
 
 enum FileType {
@@ -148,6 +150,8 @@ export class Device extends EventEmitter {
           console.error('Error parsing buffer', e);
           continue;
         }
+        this.emit('raw-event', event);
+
         const inputs = this.mapping.mapEvent(event);
 
         // TODO:: Buffer events up to a SYNC and then send?

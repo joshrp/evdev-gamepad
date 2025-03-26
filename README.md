@@ -19,6 +19,7 @@ Receive events for gamepad-like devices using evdev files. Deals with:
 - `macro` - When a macro is triggered
 - `connect` - When a device is being read and events should be received
 - `disconnect` - When a device is no longer being read and events should not be received
+- `raw-input` - On any EVDev event, passing the parsed evdev event. Useful for new mappings and debugging.
 
 
 ### Quick start
@@ -92,11 +93,11 @@ The default `BaseMapping` is setup for an Xbox Series S controller.
 Included is a mapping for `PS5Controller` and `SwitchProController` which can be used by passing the mapping to the `Device` constructor.
 
 ```javascript
-import { Device, PS5Controller } from 'evdev-gamepad';
+import { Device, Mappings } from 'evdev-gamepad';
 
 const device = new Device({
   path: "test_data/face_buttons.bin",
-  mapping: PS5Controller
+  mapping: new Mappings.SwitchProMapping()
 });
 
 device.connect();
