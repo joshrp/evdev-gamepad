@@ -1,6 +1,6 @@
 {
   "name": "evdev-gamepad",
-  "version": "0.0.3",
+  "version": "0.1.1",
   "description": "A wrapper on an evdev file to allow easy setup / reading of events",
   "module": "dist/index.js",
   "type": "module",

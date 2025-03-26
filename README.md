@@ -110,3 +110,5 @@ There is also no support for talking back to the controller. This library is int
 - https://github.com/atar-axis/xpadneo
 - https://github.com/nowrep/dualsensectl
 
+## Development
+This library is in use in my home project controlling a raspberry pi with my game controllers and using steamlink. It's not perfect but it's good enough for me. If you have any issues or suggestions please open an issue or PR.
