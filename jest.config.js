@@ -2,10 +2,13 @@
 export default {
   transform: {
     "^.+\.tsx?$": ["ts-jest", {
-      tsconfig: "./tsconfig.json"
+      tsconfig: "./tsconfig.json",
+
     }],
   },
+  rootDir: './test',
   moduleNameMapper: {
     '(.+)\\.js': '$1'
   },
+
 };

@@ -1,7 +1,7 @@
 
-import { Device, Input, State, MacroConfig } from "../src/index";
+import { Device, Input, State, MacroConfig } from "../src/index.js";
 import { EchoMapping } from "../src/mappings/echoMap.js";
-import * as path from "path";
+import * as path from "node:path";
 
 describe("Input Parsing for", () => {
   test.each([
@@ -70,7 +70,7 @@ describe("Input Parsing for", () => {
       });
 
       const changes: string[][] = [];
-      controller.on('state-change', (event) => {
+      controller.on('state-change', (event: any) => {
         changes.push([event.input, event.state]);
       });
 
@@ -143,7 +143,7 @@ describe('Macros', () => {
       let called = 0;
       controller.macros[test_file] = macro;
 
-      controller.on('macro', (id, config) => {
+      controller.on('macro', (id: string, config: any) => {
         try {
           expect(id).toEqual(test_file);
           expect(config).toEqual(macro);

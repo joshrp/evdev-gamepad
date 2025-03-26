@@ -18,6 +18,9 @@ device.macros["shoulders"] = {
   }, {
     input: Input.LeftBumper,
     state: State.Pressed,
+  },{
+    input: Input.Platform,
+    state: State.Pressed,
   }],
   exclusive: true,
   someRandomOtherDataToPass: 42

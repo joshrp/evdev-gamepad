@@ -1,6 +1,6 @@
 import { accessSync, createReadStream, ReadStream, constants, statSync } from "node:fs";
 import { EventEmitter } from "node:events";
-import path from "node:path";
+import * as path from "node:path";
 
 import * as chokidar from 'chokidar';
 import { parseBuffer } from "./lib.js";
@@ -71,10 +71,11 @@ export class Device extends EventEmitter {
       try {
         const watcher = chokidar.watch(p, {
           persistent: true,
-
-        }).on('add', (file, stats) => {
-          resolve(true);
-          watcher.close();
+        }).on('add', (file) => {
+          if (file == p) {
+            resolve(true);
+            watcher.close();
+          }
         }).on('error', (e) => {
           watcher.close();
           reject(e);
