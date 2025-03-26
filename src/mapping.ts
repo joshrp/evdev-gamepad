@@ -144,6 +144,7 @@ export function getDefaultStates(): ButtonStates {
     [Input.LeftStickY]: { input: Input.LeftStickY, state: State.Neutral },
     [Input.RightStickX]: { input: Input.RightStickX, state: State.Neutral },
     [Input.RightStickY]: { input: Input.RightStickY, state: State.Neutral },
+    [Input.Share]: { input: Input.Share, state: State.Released },
     [Input.Unknown]: { input: Input.Unknown, state: State.Neutral },
     [Input.Ignore]: { input: Input.Ignore, state: State.Neutral },
   };

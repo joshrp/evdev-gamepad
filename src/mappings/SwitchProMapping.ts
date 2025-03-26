@@ -1,17 +1,12 @@
 import { BaseMapping, ButtonMappingBasic } from "../mapping.js";
 import { Input } from "../types.js";
 
-export class PS5Mapping extends BaseMapping {
-
-  public STICK_DEADZONE = 100;
-  public STICK_MAX = 255;
-  public STICK_CENTRE = 255 / 2
-  public TRIGGER_TOLERANCE = 40;
-  public EV_KEY_PRESSED_VALUE = 1;
+export class SwitchProMapping extends BaseMapping {
+  public STICK_DEADZONE = 20000;
+  public STICK_MAX = 32000;
+  public STICK_CENTRE = 0;
 
   EV_ABS: {[key: string]: ButtonMappingBasic} = {
-    ABS_Z: { input: Input.LeftTrigger, map: this.TriggerEvent },
-    ABS_RZ: { input: Input.RightTrigger, map: this.TriggerEvent },
     ABS_X: { input: Input.LeftStickX, map: this.StickEvent },
     ABS_Y: { input: Input.LeftStickY, map: this.StickEvent },
     ABS_RX: { input: Input.RightStickX, map: this.StickEvent },
@@ -27,10 +22,14 @@ export class PS5Mapping extends BaseMapping {
     BTN_Y: { input: Input.West, map: this.ButtonEvent },
     BTN_TL: { input: Input.LeftBumper, map: this.ButtonEvent },
     BTN_TR: { input: Input.RightBumper, map: this.ButtonEvent },
-    BTN_SELECT: { input: Input.Share, map: this.ButtonEvent },
+    BTN_TR2: { input: Input.RightTrigger, map: this.ButtonEvent },
+    BTN_TL2: { input: Input.LeftTrigger, map: this.ButtonEvent },
+    BTN_SELECT: { input: Input.Back, map: this.ButtonEvent },
     BTN_START: { input: Input.Start, map: this.ButtonEvent },
     BTN_THUMBL: { input: Input.LeftThumb, map: this.ButtonEvent },
     BTN_THUMBR: { input: Input.RightThumb, map: this.ButtonEvent },
     BTN_MODE: { input: Input.Platform, map: this.ButtonEvent },
+    BTN_Z: { input: Input.Share, map: this.ButtonEvent },
   };
+
 }

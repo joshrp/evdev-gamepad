@@ -37,6 +37,7 @@ export enum Input {
   LeftStickY = 'LeftStickY',
   RightStickX = 'RightStickX',
   RightStickY = 'RightStickY',
+  Share = 'Share',
   Unknown = 'Unknown',
   Ignore = 'Ignore'
 };
