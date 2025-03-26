@@ -40,6 +40,13 @@ device.on('state-change', (state) => {
 await device.connect();
 ```
 
+## Lifecycle
+The `Device` class doesn't care if the underlying device is available or not. It uses fs.watch (chokidar) under the hood to wait till it appears. If it goes away it will wait again.
+
+This means you can keep the same instance of the class and event callbacks as long as you like. If the device is disconnected and reconnected it will automatically start emitting events again.
+
+A `connect` event is emitted when the device is ready to be read and a `disconnect` event is emitted when the device is no longer available.
+
 ### Macros
 Receive an event when a series of buttons are pressed:
 ```javascript
